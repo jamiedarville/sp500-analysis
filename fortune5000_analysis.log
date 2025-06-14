@@ -45,3 +45,20 @@
 2025-06-14 13:13:31,151 - INFO - Processed 400/593 stocks...
 2025-06-14 13:13:36,166 - INFO - Processed 500/593 stocks...
 2025-06-14 13:13:41,732 - INFO - Results saved to fortune5000_drops_20250614_131341.csv
+2025-06-14 13:43:21,012 - INFO - Initialized with 'balanced' rate limiting preset
+2025-06-14 13:43:21,012 - INFO - Config: 3 workers, batch size 50, delay (0.5, 2.0)
+2025-06-14 13:43:21,012 - INFO - Starting comprehensive US stock analysis with rate limiting...
+2025-06-14 13:43:21,012 - INFO - Loading US public company tickers from us_public_tickers.csv...
+2025-06-14 13:43:21,056 - INFO - Loaded 11430 total tickers from CSV
+2025-06-14 13:43:21,056 - INFO - Filtered to 10929 valid common stock tickers
+2025-06-14 13:43:21,057 - INFO - Processing batch 1/219 (50 tickers)
+2025-06-14 13:43:21,240 - WARNING - Rate limited on attempt 1, waiting 1.89s
+2025-06-14 13:43:25,407 - WARNING - Insufficient data for AACBR
+2025-06-14 13:43:42,532 - INFO - Made 50 API requests...
+2025-06-14 13:43:42,573 - WARNING - Insufficient data for ABLLW
+2025-06-14 13:43:43,246 - INFO - Batch 1 complete. Processed 50/10929 stocks. Found 28 drops in this batch.
+2025-06-14 13:43:43,247 - INFO - Waiting 2.9s before next batch...
+2025-06-14 13:43:46,124 - INFO - Processing batch 2/219 (50 tickers)
+2025-06-14 13:43:48,182 - WARNING - Insufficient data for ABLVW
+2025-06-14 13:43:50,026 - WARNING - Insufficient data for ABPWW
+2025-06-14 13:43:53,834 - WARNING - Insufficient data for ABVEW
