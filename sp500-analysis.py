@@ -7,6 +7,8 @@ from typing import List, Optional, Dict, Any
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import warnings
+import numpy as np
+import ta
 
 # Configure logging
 logging.basicConfig(
@@ -94,6 +96,121 @@ class SP500Analyzer:
         else:
             return today - timedelta(days=1)
 
+    def calculate_technical_indicators(self, hist_data: pd.DataFrame) -> Dict[str, float]:
+        """
+        Calculate technical indicators (RSI, MACD, OBV) from historical data.
+        
+        Args:
+            hist_data: Historical price data from yfinance
+            
+        Returns:
+            Dictionary containing technical indicator values
+        """
+        try:
+            if len(hist_data) < 14:  # Need at least 14 days for RSI
+                return {
+                    'rsi': None,
+                    'macd': None,
+                    'macd_signal': None,
+                    'macd_histogram': None,
+                    'obv': None
+                }
+            
+            # Calculate RSI (14-day period)
+            rsi = ta.momentum.RSIIndicator(hist_data['Close'], window=14).rsi().iloc[-1]
+            
+            # Calculate MACD
+            macd_indicator = ta.trend.MACD(hist_data['Close'])
+            macd = macd_indicator.macd().iloc[-1]
+            macd_signal = macd_indicator.macd_signal().iloc[-1]
+            macd_histogram = macd_indicator.macd_diff().iloc[-1]
+            
+            # Calculate OBV (On-Balance Volume)
+            obv_indicator = ta.volume.OnBalanceVolumeIndicator(hist_data['Close'], hist_data['Volume'])
+            obv = obv_indicator.on_balance_volume().iloc[-1]
+            
+            return {
+                'rsi': round(rsi, 2) if not pd.isna(rsi) else None,
+                'macd': round(macd, 4) if not pd.isna(macd) else None,
+                'macd_signal': round(macd_signal, 4) if not pd.isna(macd_signal) else None,
+                'macd_histogram': round(macd_histogram, 4) if not pd.isna(macd_histogram) else None,
+                'obv': int(obv) if not pd.isna(obv) else None
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error calculating technical indicators: {e}")
+            return {
+                'rsi': None,
+                'macd': None,
+                'macd_signal': None,
+                'macd_histogram': None,
+                'obv': None
+            }
+
+    def calculate_fundamental_ratios(self, info: Dict[str, Any]) -> Dict[str, float]:
+        """
+        Calculate fundamental financial ratios from stock info.
+        
+        Args:
+            info: Stock info dictionary from yfinance
+            
+        Returns:
+            Dictionary containing fundamental ratios
+        """
+        try:
+            # P/E Ratio
+            pe_ratio = info.get('trailingPE', None)
+            forward_pe = info.get('forwardPE', None)
+            
+            # PEG Ratio
+            peg_ratio = info.get('pegRatio', None)
+            
+            # Debt-to-Equity Ratio
+            total_debt = info.get('totalDebt', 0)
+            total_equity = info.get('totalStockholderEquity', 0)
+            debt_to_equity = (total_debt / total_equity) if total_equity and total_equity != 0 else None
+            
+            # Free Cash Flow
+            free_cash_flow = info.get('freeCashflow', None)
+            
+            # Dividend Yield
+            dividend_yield = info.get('dividendYield', None)
+            if dividend_yield:
+                dividend_yield = dividend_yield * 100  # Convert to percentage
+            
+            # Additional useful metrics
+            book_value = info.get('bookValue', None)
+            price_to_book = info.get('priceToBook', None)
+            return_on_equity = info.get('returnOnEquity', None)
+            if return_on_equity:
+                return_on_equity = return_on_equity * 100  # Convert to percentage
+            
+            return {
+                'pe_ratio': round(pe_ratio, 2) if pe_ratio else None,
+                'forward_pe': round(forward_pe, 2) if forward_pe else None,
+                'peg_ratio': round(peg_ratio, 2) if peg_ratio else None,
+                'debt_to_equity': round(debt_to_equity, 2) if debt_to_equity else None,
+                'free_cash_flow': free_cash_flow,
+                'dividend_yield': round(dividend_yield, 2) if dividend_yield else None,
+                'book_value': round(book_value, 2) if book_value else None,
+                'price_to_book': round(price_to_book, 2) if price_to_book else None,
+                'return_on_equity': round(return_on_equity, 2) if return_on_equity else None
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error calculating fundamental ratios: {e}")
+            return {
+                'pe_ratio': None,
+                'forward_pe': None,
+                'peg_ratio': None,
+                'debt_to_equity': None,
+                'free_cash_flow': None,
+                'dividend_yield': None,
+                'book_value': None,
+                'price_to_book': None,
+                'return_on_equity': None
+            }
+
     def analyze_single_stock(self, ticker_symbol: str) -> Optional[Dict[str, Any]]:
         """
         Analyze a single stock for significant price drops.
@@ -107,8 +224,8 @@ class SP500Analyzer:
         try:
             ticker = yf.Ticker(ticker_symbol)
             
-            # Get recent price data (5 days to ensure we have enough data)
-            hist = ticker.history(period="5d")
+            # Get more historical data for technical indicators (30 days)
+            hist = ticker.history(period="30d")
             
             if hist.empty or len(hist) < 2:
                 logger.warning(f"Insufficient data for {ticker_symbol}")
@@ -135,7 +252,14 @@ class SP500Analyzer:
                 # Calculate distance from 52-week high
                 distance_from_high = ((current_close - fifty_two_week_high) / fifty_two_week_high) * 100 if fifty_two_week_high else 0
                 
-                return {
+                # Calculate technical indicators
+                technical_indicators = self.calculate_technical_indicators(hist)
+                
+                # Calculate fundamental ratios
+                fundamental_ratios = self.calculate_fundamental_ratios(info)
+                
+                # Combine all data
+                result = {
                     'symbol': ticker_symbol,
                     'company_name': company_name,
                     'sector': sector,
@@ -149,6 +273,14 @@ class SP500Analyzer:
                     'volume': hist['Volume'].iloc[-1],
                     'avg_volume': hist['Volume'].mean()
                 }
+                
+                # Add technical indicators
+                result.update(technical_indicators)
+                
+                # Add fundamental ratios
+                result.update(fundamental_ratios)
+                
+                return result
                 
         except Exception as e:
             logger.error(f"Error analyzing {ticker_symbol}: {e}")
@@ -195,6 +327,22 @@ class SP500Analyzer:
             return f"${market_cap/1e6:.2f}M"
         else:
             return f"${market_cap:,.0f}"
+
+    def format_large_number(self, number: float) -> str:
+        """Format large numbers (like FCF) in readable format."""
+        if number is None:
+            return "N/A"
+        
+        if abs(number) >= 1e12:
+            return f"${number/1e12:.2f}T"
+        elif abs(number) >= 1e9:
+            return f"${number/1e9:.2f}B"
+        elif abs(number) >= 1e6:
+            return f"${number/1e6:.2f}M"
+        elif abs(number) >= 1e3:
+            return f"${number/1e3:.2f}K"
+        else:
+            return f"${number:,.0f}"
 
     def analyze_sp500_stocks(self) -> None:
         """
@@ -291,15 +439,50 @@ class SP500Analyzer:
             print(f"   52-Week Range: ${stock['fifty_two_week_low']:.2f} - ${stock['fifty_two_week_high']:.2f}")
             print(f"   Volume: {stock['volume']:,.0f} (Avg: {stock['avg_volume']:,.0f})")
             
+            # Display fundamental ratios
+            print(f"\n   📈 FUNDAMENTAL METRICS:")
+            pe_ratio = stock.get('pe_ratio', 'N/A')
+            peg_ratio = stock.get('peg_ratio', 'N/A')
+            debt_to_equity = stock.get('debt_to_equity', 'N/A')
+            dividend_yield = stock.get('dividend_yield', 'N/A')
+            free_cash_flow = self.format_large_number(stock.get('free_cash_flow'))
+            
+            print(f"   • P/E Ratio: {pe_ratio}")
+            print(f"   • PEG Ratio: {peg_ratio}")
+            print(f"   • Debt-to-Equity: {debt_to_equity}")
+            print(f"   • Dividend Yield: {dividend_yield}%" if dividend_yield != 'N/A' else f"   • Dividend Yield: {dividend_yield}")
+            print(f"   • Free Cash Flow: {free_cash_flow}")
+            
+            # Display technical indicators
+            print(f"\n   📊 TECHNICAL INDICATORS:")
+            rsi = stock.get('rsi', 'N/A')
+            macd = stock.get('macd', 'N/A')
+            macd_signal = stock.get('macd_signal', 'N/A')
+            obv = stock.get('obv', 'N/A')
+            
+            print(f"   • RSI (14): {rsi}")
+            print(f"   • MACD: {macd}")
+            print(f"   • MACD Signal: {macd_signal}")
+            print(f"   • OBV: {obv:,}" if obv != 'N/A' else f"   • OBV: {obv}")
+            
+            # RSI interpretation
+            if rsi != 'N/A':
+                if rsi < 30:
+                    print(f"     → RSI indicates oversold conditions")
+                elif rsi > 70:
+                    print(f"     → RSI indicates overbought conditions")
+                else:
+                    print(f"     → RSI indicates neutral conditions")
+            
             # Get and display news
             news = self.get_stock_news(stock['symbol'])
             if news:
-                print(f"   Recent News:")
+                print(f"\n   📰 RECENT NEWS:")
                 for item in news:
                     print(f"     • {item['title'][:80]}...")
                     print(f"       {item['publisher']} - {item['published']}")
             else:
-                print(f"   No recent news available")
+                print(f"\n   📰 No recent news available")
             
             print("-" * 80)
 
@@ -319,7 +502,7 @@ def main():
     """Main function to run the analysis."""
     try:
         # Create analyzer instance
-        analyzer = SP500Analyzer(drop_threshold=-10.0, max_workers=10)
+        analyzer = SP500Analyzer(drop_threshold=-1.0, max_workers=10)
         
         # Run analysis
         analyzer.analyze_sp500_stocks()
