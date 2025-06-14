@@ -1,0 +1,189 @@
+# Fortune 5000 Stock Analysis Tool
+
+A comprehensive Python tool for analyzing Fortune 5000 stocks to identify significant price drops and provide detailed market analysis.
+
+## Features
+
+- **Comprehensive Coverage**: Analyzes Fortune 5000 companies from multiple sources (S&P 500, Russell 3000, NASDAQ 100, and additional large/mid-cap stocks)
+- **Drop Detection**: Identifies stocks with significant single-day drops (configurable threshold)
+- **Comprehensive Data**: Provides market cap, 52-week ranges, volume analysis
+- **Advanced Financial Metrics**:
+  - Fundamental ratios (P/E, PEG, Debt-to-Equity, Free Cash Flow, Dividend Yield)
+  - Technical indicators (RSI, MACD, On-Balance Volume)
+- **News Integration**: Fetches recent news for stocks with significant drops
+- **Concurrent Processing**: Uses multithreading for faster analysis of large dataset
+- **Data Export**: Saves results to CSV files with timestamps
+- **Robust Error Handling**: Includes logging and retry mechanisms
+- **Trading Day Awareness**: Handles weekends and holidays properly
+
+## Installation
+
+1. Clone or download this repository
+2. Install required dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Usage
+
+### Basic Usage
+
+```bash
+python fortune5000-analysis.py
+```
+
+### Customization
+
+You can modify the analysis parameters by editing the `main()` function:
+
+```python
+# Change drop threshold (default: -1.0% for broader coverage)
+analyzer = Fortune5000Analyzer(drop_threshold=-5.0, max_workers=10)
+
+# Adjust concurrent workers (default: 10, can increase for faster processing)
+analyzer = Fortune5000Analyzer(drop_threshold=-1.0, max_workers=20)
+```
+
+## Data Sources
+
+The Fortune 5000 ticker list is compiled from multiple sources to ensure comprehensive coverage:
+
+1. **S&P 500**: All S&P 500 companies from Wikipedia
+2. **Russell 3000**: Broad market coverage including large and mid-cap stocks
+3. **NASDAQ 100**: Technology-focused large-cap companies
+4. **Additional Large/Mid-Cap**: Extended list of significant public companies across all sectors
+
+This approach provides coverage of approximately 1,000-2,000 actively traded companies, representing the most significant portion of the Fortune 5000 that are publicly traded.
+
+## Output
+
+The tool provides:
+
+1. **Console Output**: 
+   - Summary table of all stocks with significant drops
+   - Detailed analysis of top 5 drops (increased from 3 for larger dataset)
+   - Progress indicators during analysis
+
+2. **CSV Export**: 
+   - Timestamped CSV file with complete analysis data
+   - Saved as `fortune5000_drops_YYYYMMDD_HHMMSS.csv`
+
+3. **Log File**: 
+   - Detailed logging saved to `fortune5000_analysis.log`
+   - Includes errors, warnings, and progress information
+
+## Sample Output
+
+```
+================================================================================
+FORTUNE 5000 SIGNIFICANT DROP ANALYSIS
+Threshold: -1.0% or lower
+Analysis Date: 2025-06-14 13:11:00
+Analyzing 1,247 companies
+================================================================================
+
+📉 Found 15 stocks with significant drops:
+------------------------------------------------------------------------------------------------------------------------
+Symbol   Company                        Sector               Change   Price      Mkt Cap    From 52W High
+------------------------------------------------------------------------------------------------------------------------
+EXAMPLE  Example Corp                   Technology           -12.45%  $  45.67   $12.3B        -25.1%
+TEST     Test Industries                Healthcare           -11.20%  $ 123.45   $5.67B        -18.7%
+DEMO     Demo Solutions                 Finance              -10.80%  $  78.90   $2.34B        -15.2%
+```
+
+## Improvements Over S&P 500 Version
+
+### Expanded Coverage
+- **Fortune 5000 vs S&P 500**: Analyzes ~1,200+ companies vs 500
+- **Multi-Source Data**: Combines multiple ticker sources for comprehensive coverage
+- **Sector Diversity**: Better representation across all market sectors and company sizes
+
+### Enhanced Performance
+- **Optimized Rate Limiting**: Reduced delays for larger dataset processing
+- **Improved Progress Tracking**: Better progress indicators for longer analysis
+- **Scalable Architecture**: Designed to handle larger datasets efficiently
+
+### Better Analysis
+- **Top 5 Analysis**: Increased from top 3 for more insights
+- **Broader Threshold**: Default -1.0% threshold captures more opportunities
+- **Enhanced Logging**: More detailed logging for larger dataset management
+
+## Financial Metrics Explained
+
+### Fundamental Ratios
+- **P/E Ratio (Price-to-Earnings)**: Measures how much investors are willing to pay per dollar of earnings
+- **PEG Ratio (Price/Earnings-to-Growth)**: P/E ratio divided by earnings growth rate; values under 1.0 may indicate undervaluation
+- **Debt-to-Equity Ratio**: Total debt divided by total equity; measures financial leverage
+- **Free Cash Flow**: Cash generated by operations minus capital expenditures
+- **Dividend Yield**: Annual dividends per share divided by stock price; expressed as percentage
+
+### Technical Indicators
+- **RSI (Relative Strength Index)**: Momentum oscillator (0-100); values below 30 suggest oversold, above 70 suggest overbought
+- **MACD (Moving Average Convergence Divergence)**: Trend-following momentum indicator
+- **OBV (On-Balance Volume)**: Uses volume flow to predict changes in stock price
+
+## Configuration Options
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `drop_threshold` | -1.0 | Minimum percentage drop to flag stocks (lowered for broader coverage) |
+| `max_workers` | 10 | Number of concurrent threads for analysis |
+| `max_news` | 3 | Maximum news items to fetch per stock |
+
+## Dependencies
+
+- `pandas`: Data manipulation and analysis
+- `yfinance`: Yahoo Finance API for stock data
+- `requests`: HTTP library for web requests
+- `lxml`: XML/HTML parser for pandas.read_html()
+- `html5lib`: HTML parser for pandas.read_html()
+- `ta`: Technical analysis library for RSI, MACD, and OBV calculations
+- `numpy`: Numerical computing library for mathematical operations
+
+## Performance Considerations
+
+- **Analysis Time**: Expect 10-20 minutes for full Fortune 5000 analysis (vs 2-5 minutes for S&P 500)
+- **Memory Usage**: Higher memory usage due to larger dataset
+- **Rate Limiting**: Built-in delays to respect API limits
+- **Concurrent Processing**: Optimized for parallel processing to minimize total time
+
+## Error Handling
+
+The tool includes comprehensive error handling for:
+- Network connectivity issues
+- Invalid ticker symbols
+- Missing or insufficient data
+- API rate limiting
+- File I/O operations
+- Large dataset processing challenges
+
+## Logging
+
+All operations are logged to both console and file:
+- **INFO**: General progress and status updates (more frequent for larger dataset)
+- **WARNING**: Non-critical issues (e.g., missing data for specific stocks)
+- **ERROR**: Critical errors that prevent analysis
+
+## Fortune 5000 vs S&P 500 Comparison
+
+| Aspect | S&P 500 | Fortune 5000 |
+|--------|---------|---------------|
+| Companies Analyzed | ~500 | ~1,200+ |
+| Analysis Time | 2-5 minutes | 10-20 minutes |
+| Market Coverage | Large-cap only | Large, mid, and some small-cap |
+| Sector Diversity | Good | Excellent |
+| Opportunity Discovery | Limited | Comprehensive |
+| Default Threshold | -10% | -1% (broader) |
+
+## Use Cases
+
+- **Institutional Investors**: Comprehensive market screening
+- **Day Traders**: Broader opportunity identification
+- **Research Analysts**: Market-wide trend analysis
+- **Portfolio Managers**: Risk assessment across market segments
+- **Academic Research**: Large-scale market behavior studies
+
+## License
+
+This project is open source and available under the MIT License.
