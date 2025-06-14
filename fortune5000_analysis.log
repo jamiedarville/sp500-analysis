@@ -1,0 +1,47 @@
+2025-06-14 13:13:10,032 - INFO - Starting Fortune 5000 analysis...
+2025-06-14 13:13:10,033 - INFO - Fetching Fortune 5000 ticker list from multiple sources...
+2025-06-14 13:13:10,333 - INFO - Added 503 S&P 500 tickers
+2025-06-14 13:13:10,334 - INFO - Added Russell 3000 tickers, total unique: 513
+2025-06-14 13:13:10,334 - INFO - Added additional tickers, total unique: 583
+2025-06-14 13:13:10,486 - INFO - Added NASDAQ 100 tickers, total unique: 592
+2025-06-14 13:13:10,487 - INFO - Successfully compiled 594 Fortune 5000 tickers
+2025-06-14 13:13:11,742 - ERROR - $ARX: possibly delisted; no price data found  (period=30d)
+2025-06-14 13:13:11,743 - WARNING - Insufficient data for ARX
+2025-06-14 13:13:11,824 - ERROR - $ANTM: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:11,826 - WARNING - Insufficient data for ANTM
+2025-06-14 13:13:14,186 - ERROR - HTTP Error 404: 
+2025-06-14 13:13:14,441 - ERROR - $EATON: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:14,442 - WARNING - Insufficient data for EATON
+2025-06-14 13:13:15,036 - ERROR - $FISV: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:15,040 - WARNING - Insufficient data for FISV
+2025-06-14 13:13:15,503 - ERROR - $GRUB: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:15,504 - WARNING - Insufficient data for GRUB
+2025-06-14 13:13:15,950 - INFO - Processed 100/593 stocks...
+2025-06-14 13:13:16,329 - ERROR - $IQVIA: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:16,330 - WARNING - Insufficient data for IQVIA
+2025-06-14 13:13:17,170 - ERROR - $LSI: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:17,171 - WARNING - Insufficient data for LSI
+2025-06-14 13:13:18,896 - ERROR - $PEAK: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:18,897 - WARNING - Insufficient data for PEAK
+2025-06-14 13:13:19,428 - ERROR - $RDS-B: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:19,429 - WARNING - Insufficient data for RDS-B
+2025-06-14 13:13:19,435 - ERROR - $RDS-A: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:19,435 - WARNING - Insufficient data for RDS-A
+2025-06-14 13:13:20,023 - ERROR - $SIVB: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:20,025 - WARNING - Insufficient data for SIVB
+2025-06-14 13:13:20,257 - ERROR - $SQ: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:20,258 - WARNING - Insufficient data for SQ
+2025-06-14 13:13:20,259 - ERROR - $SPLK: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:20,260 - WARNING - Insufficient data for SPLK
+2025-06-14 13:13:21,098 - INFO - Processed 200/593 stocks...
+2025-06-14 13:13:21,563 - ERROR - $VAR: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:21,567 - WARNING - Insufficient data for VAR
+2025-06-14 13:13:21,581 - WARNING - Insufficient data for VMW
+2025-06-14 13:13:21,745 - ERROR - $WCP: possibly delisted; no price data found  (period=30d)
+2025-06-14 13:13:21,746 - WARNING - Insufficient data for WCP
+2025-06-14 13:13:22,210 - ERROR - $XLNX: possibly delisted; no price data found  (period=30d) (Yahoo error = "No data found, symbol may be delisted")
+2025-06-14 13:13:22,211 - WARNING - Insufficient data for XLNX
+2025-06-14 13:13:26,136 - INFO - Processed 300/593 stocks...
+2025-06-14 13:13:31,151 - INFO - Processed 400/593 stocks...
+2025-06-14 13:13:36,166 - INFO - Processed 500/593 stocks...
+2025-06-14 13:13:41,732 - INFO - Results saved to fortune5000_drops_20250614_131341.csv

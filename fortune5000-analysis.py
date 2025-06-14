@@ -4,18 +4,21 @@ from datetime import datetime, timedelta
 import time
 import logging
 from typing import List, Optional, Dict, Any
-import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import warnings
 import numpy as np
 import ta
+import json
+import random
+from functools import wraps
+from rate_limit_config import get_config, RATE_LIMIT_CONFIG
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('sp500_analysis.log'),
+        logging.FileHandler('us_stock_analysis.log'),
         logging.StreamHandler()
     ]
 )
@@ -24,58 +27,99 @@ logger = logging.getLogger(__name__)
 # Suppress pandas warnings for cleaner output
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-class SP500Analyzer:
+class Fortune5000Analyzer:
     """
-    A comprehensive S&P 500 stock analyzer that identifies significant price drops
-    and provides detailed analysis including historical data and recent news.
+    A comprehensive US stock analyzer that identifies significant price drops across
+    all US public companies and provides detailed analysis including historical data
+    and recent news. Uses comprehensive ticker data from us_public_tickers.csv.
     """
     
-    def __init__(self, drop_threshold: float = -10.0, max_workers: int = 10):
+    def __init__(self, drop_threshold: float = -10.0, rate_limit_preset: str = 'balanced'):
         """
         Initialize the analyzer with configurable parameters.
         
         Args:
             drop_threshold: Minimum percentage drop to flag (default: -10%)
-            max_workers: Maximum number of concurrent threads for data fetching
+            rate_limit_preset: Rate limiting preset ('aggressive', 'balanced', 'conservative', 'ultra_conservative')
         """
         self.drop_threshold = drop_threshold
-        self.max_workers = max_workers
-        self.session = requests.Session()
         
-    def get_sp500_tickers(self) -> Optional[List[str]]:
+        # Load rate limiting configuration
+        config = get_config(rate_limit_preset)
+        self.max_workers = config['max_workers']
+        self.batch_size = config['batch_size']
+        self.delay_range = config['delay_range']
+        self.inter_batch_delay = config['inter_batch_delay']
+        
+        # Rate limiting state
+        self.request_count = 0
+        self.last_request_time = 0
+        self.failed_requests = []
+        self.rate_limit_preset = rate_limit_preset
+        
+        logger.info(f"Initialized with '{rate_limit_preset}' rate limiting preset")
+        logger.info(f"Config: {self.max_workers} workers, batch size {self.batch_size}, delay {self.delay_range}")
+        
+    def get_fortune5000_tickers(self) -> Optional[List[str]]:
         """
-        Retrieves the list of S&P 500 tickers from Wikipedia.
+        Load all US public company tickers from the us_public_tickers.csv file.
+        This provides comprehensive coverage of all US listed stocks.
         
         Returns:
             List of ticker symbols or None if failed
         """
         try:
-            logger.info("Fetching S&P 500 ticker list from Wikipedia...")
-            url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
+            logger.info("Loading US public company tickers from us_public_tickers.csv...")
             
-            # Add retry logic for network requests
-            for attempt in range(3):
-                try:
-                    tables = pd.read_html(url)
-                    sp500_df = tables[0]
-                    tickers = sp500_df['Symbol'].tolist()
+            # Read the CSV file
+            df = pd.read_csv('us_public_tickers.csv')
+            
+            # Get the ticker symbols from the 'Symbol' column
+            all_tickers = df['Symbol'].dropna().tolist()
+            
+            # Filter out invalid tickers (ETFs, bonds, warrants, etc.)
+            valid_tickers = []
+            excluded_suffixes = ['.W', '.U', '.R', '$', '#', '.A', '.B', '.C', '.D', '.E', '.F', '.G', '.H', '.I', '.J', '.K', '.L', '.M', '.N', '.O', '.P', '.Q', '.R', '.S', '.T', '.U', '.V', '.W', '.X', '.Y', '.Z']
+            
+            for ticker in all_tickers:
+                ticker = str(ticker).strip()
+                
+                # Skip empty or invalid tickers
+                if not ticker or ticker == 'nan' or len(ticker) > 6:
+                    continue
                     
-                    # Clean tickers (remove any invalid characters)
-                    tickers = [ticker.replace('.', '-') for ticker in tickers if ticker]
+                # Skip tickers with special suffixes (preferred stocks, warrants, etc.)
+                if any(ticker.endswith(suffix) for suffix in excluded_suffixes):
+                    continue
                     
-                    logger.info(f"Successfully retrieved {len(tickers)} S&P 500 tickers")
-                    return tickers
+                # Skip tickers with special characters except for common ones like BRK-A
+                if '$' in ticker or '#' in ticker:
+                    continue
                     
-                except Exception as e:
-                    logger.warning(f"Attempt {attempt + 1} failed: {e}")
-                    if attempt < 2:
-                        time.sleep(2)
-                    else:
-                        raise
-                        
-        except Exception as e:
-            logger.error(f"Error fetching S&P 500 tickers: {e}")
+                # Handle special cases like BRK.A -> BRK-A
+                if '.' in ticker and not ticker.endswith('.'):
+                    ticker = ticker.replace('.', '-')
+                
+                # Only include tickers with letters (and possibly numbers and hyphens)
+                if ticker.replace('-', '').replace('.', '').isalnum() and ticker[0].isalpha():
+                    valid_tickers.append(ticker)
+            
+            # Remove duplicates and sort
+            valid_tickers = sorted(list(set(valid_tickers)))
+            
+            logger.info(f"Loaded {len(all_tickers)} total tickers from CSV")
+            logger.info(f"Filtered to {len(valid_tickers)} valid common stock tickers")
+            
+            return valid_tickers
+            
+        except FileNotFoundError:
+            logger.error("us_public_tickers.csv file not found!")
+            logger.error("Please ensure the file is in the current directory.")
             return None
+        except Exception as e:
+            logger.error(f"Error loading tickers from CSV: {e}")
+            return None
+
 
     def get_last_trading_day(self) -> datetime:
         """
@@ -211,9 +255,56 @@ class SP500Analyzer:
                 'return_on_equity': None
             }
 
+    def rate_limited_request(self, func):
+        """
+        Decorator to add rate limiting to API requests with exponential backoff.
+        """
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            max_retries = RATE_LIMIT_CONFIG['max_retries']
+            base_delay = RATE_LIMIT_CONFIG['exponential_backoff_base']
+            
+            for attempt in range(max_retries):
+                try:
+                    # Implement rate limiting
+                    current_time = time.time()
+                    time_since_last = current_time - self.last_request_time
+                    min_delay = random.uniform(*self.delay_range)
+                    
+                    if time_since_last < min_delay:
+                        sleep_time = min_delay - time_since_last
+                        time.sleep(sleep_time)
+                    
+                    self.last_request_time = time.time()
+                    self.request_count += 1
+                    
+                    # Log progress every 50 requests
+                    if self.request_count % 50 == 0:
+                        logger.info(f"Made {self.request_count} API requests...")
+                    
+                    result = func(*args, **kwargs)
+                    return result
+                    
+                except Exception as e:
+                    if "429" in str(e) or "rate limit" in str(e).lower():
+                        # Rate limited - exponential backoff
+                        delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                        logger.warning(f"Rate limited on attempt {attempt + 1}, waiting {delay:.2f}s")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        # Other error - don't retry
+                        raise e
+            
+            # All retries failed
+            logger.error(f"Failed after {max_retries} attempts")
+            return None
+            
+        return wrapper
+
     def analyze_single_stock(self, ticker_symbol: str) -> Optional[Dict[str, Any]]:
         """
-        Analyze a single stock for significant price drops.
+        Analyze a single stock for significant price drops with rate limiting.
         
         Args:
             ticker_symbol: Stock ticker symbol
@@ -221,16 +312,29 @@ class SP500Analyzer:
         Returns:
             Dictionary with analysis results or None if no significant drop
         """
-        try:
-            ticker = yf.Ticker(ticker_symbol)
+        @self.rate_limited_request
+        def fetch_stock_data(symbol):
+            ticker = yf.Ticker(symbol)
             
             # Get more historical data for technical indicators (30 days)
             hist = ticker.history(period="30d")
             
             if hist.empty or len(hist) < 2:
-                logger.warning(f"Insufficient data for {ticker_symbol}")
+                logger.warning(f"Insufficient data for {symbol}")
                 return None
                 
+            # Get additional stock info (this is a separate API call)
+            info = ticker.info
+            
+            return hist, info
+        
+        try:
+            result = fetch_stock_data(ticker_symbol)
+            if result is None:
+                return None
+                
+            hist, info = result
+            
             # Get the two most recent trading days
             previous_close = hist['Close'].iloc[-2]
             current_close = hist['Close'].iloc[-1]
@@ -239,8 +343,6 @@ class SP500Analyzer:
             percent_change = ((current_close - previous_close) / previous_close) * 100
             
             if percent_change <= self.drop_threshold:
-                # Get additional stock info
-                info = ticker.info
                 company_name = info.get('longName', ticker_symbol)
                 sector = info.get('sector', 'Unknown')
                 market_cap = info.get('marketCap', 0)
@@ -284,11 +386,12 @@ class SP500Analyzer:
                 
         except Exception as e:
             logger.error(f"Error analyzing {ticker_symbol}: {e}")
+            self.failed_requests.append(ticker_symbol)
             return None
 
     def get_stock_news(self, ticker_symbol: str, max_news: int = 3) -> List[Dict[str, str]]:
         """
-        Get recent news for a stock ticker.
+        Get recent news for a stock ticker with rate limiting.
         
         Args:
             ticker_symbol: Stock ticker symbol
@@ -297,9 +400,13 @@ class SP500Analyzer:
         Returns:
             List of news items with title and link
         """
+        @self.rate_limited_request
+        def fetch_news(symbol):
+            ticker = yf.Ticker(symbol)
+            return ticker.news
+        
         try:
-            ticker = yf.Ticker(ticker_symbol)
-            news = ticker.news
+            news = fetch_news(ticker_symbol)
             
             if news:
                 return [
@@ -344,53 +451,85 @@ class SP500Analyzer:
         else:
             return f"${number:,.0f}"
 
-    def analyze_sp500_stocks(self) -> None:
+    def process_batch(self, ticker_batch: List[str]) -> List[Dict[str, Any]]:
         """
-        Main analysis function that processes all S&P 500 stocks.
+        Process a batch of tickers with controlled concurrency.
+        
+        Args:
+            ticker_batch: List of ticker symbols to process
+            
+        Returns:
+            List of analysis results
         """
-        logger.info("Starting S&P 500 analysis...")
+        batch_results = []
         
-        tickers = self.get_sp500_tickers()
-        if not tickers:
-            logger.error("Failed to retrieve ticker list. Exiting.")
-            return
-
-        print("\n" + "="*80)
-        print("S&P 500 SIGNIFICANT DROP ANALYSIS")
-        print(f"Threshold: {self.drop_threshold}% or lower")
-        print(f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("="*80)
-
-        dropped_stocks = []
-        processed_count = 0
-        
-        # Use ThreadPoolExecutor for concurrent processing
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all tasks
+            # Submit all tasks in the batch
             future_to_ticker = {
                 executor.submit(self.analyze_single_stock, ticker): ticker
-                for ticker in tickers
+                for ticker in ticker_batch
             }
             
             # Process completed tasks
             for future in as_completed(future_to_ticker):
                 ticker = future_to_ticker[future]
-                processed_count += 1
                 
                 try:
                     result = future.result()
                     if result:
-                        dropped_stocks.append(result)
-                        
-                    # Progress indicator
-                    if processed_count % 50 == 0:
-                        logger.info(f"Processed {processed_count}/{len(tickers)} stocks...")
+                        batch_results.append(result)
                         
                 except Exception as e:
                     logger.error(f"Error processing {ticker}: {e}")
-                
-                # Rate limiting
-                time.sleep(0.1)
+        
+        return batch_results
+
+    def analyze_us_stocks(self) -> None:
+        """
+        Main analysis function that processes all US public stocks with improved rate limiting.
+        """
+        logger.info("Starting comprehensive US stock analysis with rate limiting...")
+        
+        tickers = self.get_fortune5000_tickers()
+        if not tickers:
+            logger.error("Failed to retrieve ticker list. Exiting.")
+            return
+
+        print("\n" + "="*80)
+        print("COMPREHENSIVE US STOCK ANALYSIS (Rate Limited)")
+        print(f"Threshold: {self.drop_threshold}% or lower")
+        print(f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Analyzing {len(tickers)} US public companies")
+        print(f"Batch size: {self.batch_size}, Max workers: {self.max_workers}")
+        print(f"Delay range: {self.delay_range[0]}-{self.delay_range[1]}s")
+        print("="*80)
+
+        dropped_stocks = []
+        processed_count = 0
+        
+        # Process tickers in batches to avoid overwhelming the API
+        total_batches = (len(tickers) + self.batch_size - 1) // self.batch_size
+        
+        for batch_num in range(0, len(tickers), self.batch_size):
+            batch_tickers = tickers[batch_num:batch_num + self.batch_size]
+            current_batch = (batch_num // self.batch_size) + 1
+            
+            logger.info(f"Processing batch {current_batch}/{total_batches} ({len(batch_tickers)} tickers)")
+            
+            # Process the batch
+            batch_results = self.process_batch(batch_tickers)
+            dropped_stocks.extend(batch_results)
+            
+            processed_count += len(batch_tickers)
+            
+            # Progress update
+            logger.info(f"Batch {current_batch} complete. Processed {processed_count}/{len(tickers)} stocks. Found {len(batch_results)} drops in this batch.")
+            
+            # Inter-batch delay to be respectful to the API
+            if current_batch < total_batches:  # Don't sleep after the last batch
+                inter_batch_delay = random.uniform(2.0, 5.0)
+                logger.info(f"Waiting {inter_batch_delay:.1f}s before next batch...")
+                time.sleep(inter_batch_delay)
 
         # Display results
         self.display_results(dropped_stocks)
@@ -398,6 +537,11 @@ class SP500Analyzer:
         # Save results to CSV
         if dropped_stocks:
             self.save_results_to_csv(dropped_stocks)
+        
+        # Report failed requests
+        if self.failed_requests:
+            logger.warning(f"Failed to process {len(self.failed_requests)} tickers: {self.failed_requests[:10]}...")
+            print(f"\n⚠️  Failed to process {len(self.failed_requests)} tickers due to rate limiting or errors")
 
     def display_results(self, dropped_stocks: List[Dict[str, Any]]) -> None:
         """Display analysis results in a formatted manner."""
@@ -427,11 +571,11 @@ class SP500Analyzer:
         
         print("-" * 120)
         
-        # Show detailed analysis for top 3 drops
-        print(f"\n📊 DETAILED ANALYSIS - Top 3 Drops:")
+        # Show detailed analysis for top 5 drops (increased from 3 for larger dataset)
+        print(f"\n📊 DETAILED ANALYSIS - Top 5 Drops:")
         print("="*80)
         
-        for i, stock in enumerate(dropped_stocks[:3], 1):
+        for i, stock in enumerate(dropped_stocks[:5], 1):
             print(f"\n{i}. {stock['symbol']} - {stock['company_name']}")
             print(f"   Sector: {stock['sector']}")
             print(f"   Price Change: ${stock['previous_close']:.2f} → ${stock['current_price']:.2f} ({stock['percent_change']:.2f}%)")
@@ -490,7 +634,7 @@ class SP500Analyzer:
         """Save results to a CSV file."""
         try:
             df = pd.DataFrame(dropped_stocks)
-            filename = f"sp500_drops_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            filename = f"us_stock_drops_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             df.to_csv(filename, index=False)
             logger.info(f"Results saved to {filename}")
             print(f"\n💾 Results saved to: {filename}")
@@ -501,11 +645,16 @@ class SP500Analyzer:
 def main():
     """Main function to run the analysis."""
     try:
-        # Create analyzer instance
-        analyzer = SP500Analyzer(drop_threshold=-1.0, max_workers=10)
+        # Create analyzer instance with rate limiting optimizations
+        analyzer = Fortune5000Analyzer(
+            drop_threshold=-1.0,
+            max_workers=3,  # Reduced from 10 to avoid rate limits
+            batch_size=50,  # Process in smaller batches
+            delay_range=(0.5, 2.0)  # Random delay between requests
+        )
         
         # Run analysis
-        analyzer.analyze_sp500_stocks()
+        analyzer.analyze_us_stocks()
         
     except KeyboardInterrupt:
         logger.info("Analysis interrupted by user")
