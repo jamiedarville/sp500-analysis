@@ -18,7 +18,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('us_stock_analysis.log'),
+        logging.FileHandler('fortune5000_analysis.log'),
         logging.StreamHandler()
     ]
 )
@@ -634,7 +634,7 @@ class Fortune5000Analyzer:
         """Save results to a CSV file."""
         try:
             df = pd.DataFrame(dropped_stocks)
-            filename = f"us_stock_drops_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            filename = f"fortune5000_drops_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             df.to_csv(filename, index=False)
             logger.info(f"Results saved to {filename}")
             print(f"\n💾 Results saved to: {filename}")
@@ -644,13 +644,23 @@ class Fortune5000Analyzer:
 
 def main():
     """Main function to run the analysis."""
+    import sys
+    
     try:
-        # Create analyzer instance with rate limiting optimizations
+        # Check if a rate limiting preset was provided as command line argument
+        if len(sys.argv) > 1:
+            preset = sys.argv[1].lower()
+            if preset not in ['aggressive', 'balanced', 'conservative', 'ultra_conservative']:
+                print(f"Invalid preset: {preset}")
+                print("Valid presets: aggressive, balanced, conservative, ultra_conservative")
+                return
+        else:
+            preset = 'balanced'  # Default preset
+        
+        # Create analyzer instance with rate limiting preset
         analyzer = Fortune5000Analyzer(
             drop_threshold=-1.0,
-            max_workers=3,  # Reduced from 10 to avoid rate limits
-            batch_size=50,  # Process in smaller batches
-            delay_range=(0.5, 2.0)  # Random delay between requests
+            rate_limit_preset=preset
         )
         
         # Run analysis
