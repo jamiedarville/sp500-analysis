@@ -319,7 +319,7 @@ def main():
     """Main function to run the analysis."""
     try:
         # Create analyzer instance
-        analyzer = SP500Analyzer(drop_threshold=-10.0, max_workers=10)
+        analyzer = SP500Analyzer(drop_threshold=-1.0, max_workers=10)
         
         # Run analysis
         analyzer.analyze_sp500_stocks()
