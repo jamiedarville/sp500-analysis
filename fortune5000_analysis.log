@@ -62,3 +62,20 @@
 2025-06-14 13:43:48,182 - WARNING - Insufficient data for ABLVW
 2025-06-14 13:43:50,026 - WARNING - Insufficient data for ABPWW
 2025-06-14 13:43:53,834 - WARNING - Insufficient data for ABVEW
+2025-06-17 02:02:17,622 - INFO - Initialized with 'conservative' rate limiting preset
+2025-06-17 02:02:17,622 - INFO - Config: 1 workers, batch size 20, delay (1.0, 3.0)
+2025-06-17 02:02:17,623 - INFO - Starting comprehensive US stock analysis with rate limiting...
+2025-06-17 02:02:17,623 - INFO - Loading US public company tickers from us_public_tickers.csv...
+2025-06-17 02:02:17,666 - INFO - Loaded 11430 total tickers from CSV
+2025-06-17 02:02:17,667 - INFO - Filtered to 10929 valid common stock tickers
+2025-06-17 02:02:17,667 - INFO - Processing batch 1/547 (20 tickers)
+2025-06-17 02:02:27,186 - WARNING - Insufficient data for AACBR
+2025-06-17 02:02:28,401 - ERROR - HTTP Error 401: 
+2025-06-17 02:02:31,262 - ERROR - HTTP Error 401: 
+2025-06-17 02:02:33,067 - ERROR - HTTP Error 401: 
+2025-06-17 02:02:34,654 - ERROR - HTTP Error 401: 
+2025-06-17 02:02:35,827 - ERROR - HTTP Error 401: 
+2025-06-17 02:02:37,421 - ERROR - HTTP Error 401: 
+2025-06-17 02:04:32,112 - INFO - Initialized with 'ultra_conservative' rate limiting preset
+2025-06-17 02:04:32,113 - INFO - Config: 1 workers, batch size 10, delay (2.0, 5.0)
+2025-06-17 02:04:44,366 - ERROR - HTTP Error 401: 

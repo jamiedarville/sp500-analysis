@@ -258,6 +258,7 @@ class Fortune5000Analyzer:
     def rate_limited_request(self, func):
         """
         Decorator to add rate limiting to API requests with exponential backoff.
+        Enhanced to handle 401 errors and other HTTP errors.
         """
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -286,14 +287,27 @@ class Fortune5000Analyzer:
                     return result
                     
                 except Exception as e:
-                    if "429" in str(e) or "rate limit" in str(e).lower():
-                        # Rate limited - exponential backoff
+                    error_str = str(e).lower()
+                    
+                    # Handle various types of errors that warrant retry
+                    if any(error_code in str(e) for error_code in ["401", "429", "500", "502", "503", "504"]) or \
+                       any(keyword in error_str for keyword in ["rate limit", "too many requests", "unauthorized", "server error", "timeout"]):
+                        
+                        # Calculate exponential backoff delay
                         delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-                        logger.warning(f"Rate limited on attempt {attempt + 1}, waiting {delay:.2f}s")
+                        
+                        if "401" in str(e) or "unauthorized" in error_str:
+                            logger.warning(f"HTTP 401 error on attempt {attempt + 1}, waiting {delay:.2f}s before retry")
+                        elif "429" in str(e) or "rate limit" in error_str:
+                            logger.warning(f"Rate limited on attempt {attempt + 1}, waiting {delay:.2f}s")
+                        else:
+                            logger.warning(f"HTTP error {e} on attempt {attempt + 1}, waiting {delay:.2f}s")
+                        
                         time.sleep(delay)
                         continue
                     else:
                         # Other error - don't retry
+                        logger.error(f"Non-retryable error: {e}")
                         raise e
             
             # All retries failed
