@@ -661,19 +661,47 @@ def main():
     import sys
     
     try:
-        # Check if a rate limiting preset was provided as command line argument
+        preset = 'balanced'  # Default preset
+        drop_threshold_val = -1.0  # Default drop threshold
+
         if len(sys.argv) > 1:
-            preset = sys.argv[1].lower()
-            if preset not in ['aggressive', 'balanced', 'conservative', 'ultra_conservative']:
-                print(f"Invalid preset: {preset}")
-                print("Valid presets: aggressive, balanced, conservative, ultra_conservative")
-                return
-        else:
-            preset = 'balanced'  # Default preset
-        
-        # Create analyzer instance with rate limiting preset
+            # First argument is preset
+            preset_arg = sys.argv[1].lower()
+            if preset_arg in ['aggressive', 'balanced', 'conservative', 'ultra_conservative']:
+                preset = preset_arg
+            else:
+                # Check if the first argument is a number (for drop_threshold if preset is omitted)
+                try:
+                    drop_threshold_val = float(preset_arg)
+                    # If it's a number, preset remains 'balanced' (default)
+                except ValueError:
+                    print(f"Invalid preset or drop threshold: {sys.argv[1]}")
+                    print("Usage: python fortune5000-analysis.py [preset] [drop_threshold]")
+                    print("Valid presets: aggressive, balanced, conservative, ultra_conservative")
+                    print("Drop threshold: e.g., -5.0 for a 5% drop")
+                    return
+            
+            # Second argument is drop_threshold (if preset was also provided)
+            if len(sys.argv) > 2 and preset_arg in ['aggressive', 'balanced', 'conservative', 'ultra_conservative']:
+                try:
+                    drop_threshold_val = float(sys.argv[2])
+                except ValueError:
+                    print(f"Invalid drop threshold: {sys.argv[2]}")
+                    print("Drop threshold must be a number (e.g., -5.0).")
+                    return
+            elif len(sys.argv) > 2: # User provided two args, neither was a valid preset
+                 print(f"Invalid preset: {sys.argv[1]}")
+                 print("Usage: python fortune5000-analysis.py [preset] [drop_threshold]")
+                 print("Valid presets: aggressive, balanced, conservative, ultra_conservative")
+                 return
+
+
+        logger.info(f"Using rate limiting preset: {preset}")
+        logger.info(f"Using drop threshold: {drop_threshold_val}%")
+
+        # Create analyzer instance
         analyzer = Fortune5000Analyzer(
-            drop_threshold=-1.0,
+            drop_threshold=drop_threshold_val,
             rate_limit_preset=preset
         )
         
