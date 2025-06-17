@@ -32,10 +32,10 @@ PRESETS = {
         'inter_batch_delay': (1.0, 3.0),
     },
     'balanced': {
-        'max_workers': 3,
-        'batch_size': 50,
-        'delay_range': (0.5, 2.0),
-        'inter_batch_delay': (2.0, 5.0),
+        'max_workers': 2,
+        'batch_size': 30,
+        'delay_range': (1.0, 3.0),
+        'inter_batch_delay': (3.0, 6.0),
     },
     'conservative': {
         'max_workers': 1,
